@@ -1,0 +1,45 @@
+export const theme = {
+  colors: {
+    background: '#060911',
+    backgroundAlt: '#0c1322',
+    surface: '#10192c',
+    surfaceElevated: '#16213a',
+    surfaceSoft: '#1c2a44',
+    border: '#293751',
+    text: '#f5f7fb',
+    textMuted: '#93a4bf',
+    textDim: '#62728d',
+    accent: '#8cf26d',
+    accentAlt: '#53d2c2',
+    warning: '#f2c45a',
+    danger: '#ff6b7d',
+    bronze: '#d17b42',
+    silver: '#a3b2c2',
+    gold: '#f2c45a',
+    platinum: '#70d5d0',
+    elite: '#8cf26d',
+    overlay: 'rgba(6, 9, 17, 0.82)',
+  },
+  spacing: {
+    xs: 6,
+    sm: 10,
+    md: 16,
+    lg: 22,
+    xl: 28,
+    xxl: 36,
+  },
+  radius: {
+    sm: 12,
+    md: 18,
+    lg: 24,
+    pill: 999,
+  },
+};
+
+export const rankToneMap = {
+  Bronze: theme.colors.bronze,
+  Silver: theme.colors.silver,
+  Gold: theme.colors.gold,
+  Platinum: theme.colors.platinum,
+  Elite: theme.colors.elite,
+} as const;
