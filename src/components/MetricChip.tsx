@@ -36,12 +36,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    fontFamily: theme.fonts.mono,
   },
   value: {
     color: theme.colors.text,
     fontSize: 20,
     fontWeight: '700',
     marginTop: 6,
+    fontFamily: theme.fonts.display,
   },
 });
-

@@ -1,6 +1,26 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 import { seedDatabase } from '../data/mock';
+import {
+  createFreshUserProfile,
+  createFreshUserSnapshot,
+  createPersonalizedDemoSnapshot,
+  mergeRemoteSnapshotWithDemo,
+} from '../services/backend/bootstrap';
+import { isSupabaseConfigured } from '../services/backend/config';
+import {
+  clearLocalAuthFlag,
+  loadLocalSnapshot,
+  saveLocalSnapshot,
+} from '../services/backend/localCache';
+import {
+  loadRemoteSnapshot,
+  restoreRemoteSession,
+  saveRemoteSnapshot,
+  signInRemote,
+  signOutRemote,
+  signUpRemote,
+} from '../services/backend/supabaseRepository';
 import {
   buildWorkoutFromDraft,
   createDraftExercise,
@@ -8,54 +28,44 @@ import {
 } from '../services/gameEngine';
 import { buildYearlySummary } from '../services/summaryEngine';
 import {
-  CosmeticItem,
+  AppDataSnapshot,
+  AuthInput,
   CosmeticSlot,
   Exercise,
-  Friendship,
   LeaderboardScope,
-  Post,
-  PostComment,
-  ProgressSnapshot,
-  Quest,
-  RewardItem,
-  RoutineTemplate,
   ScreenKey,
-  UserProfile,
-  Workout,
   WorkoutDraft,
   WorkoutRewardBreakdown,
-  YearlySummary,
+  Workout,
 } from '../types/models';
 import { toId } from '../utils/format';
 
-interface CompleteOnboardingInput {
-  username: string;
-  displayName: string;
-  bio: string;
-}
-
 interface AppContextValue {
   isAuthenticated: boolean;
+  isHydrating: boolean;
+  authPending: boolean;
+  isBackendConfigured: boolean;
   activeScreen: ScreenKey;
-  currentUser: UserProfile;
-  users: UserProfile[];
+  currentUser: AppDataSnapshot['currentUser'];
+  users: AppDataSnapshot['users'];
   exercises: Exercise[];
-  routines: RoutineTemplate[];
-  workouts: Workout[];
-  progress: ProgressSnapshot[];
-  quests: Quest[];
-  rewards: RewardItem[];
-  cosmetics: CosmeticItem[];
-  friendships: Friendship[];
-  posts: Post[];
-  comments: PostComment[];
-  yearlySummary: YearlySummary;
+  routines: AppDataSnapshot['routines'];
+  workouts: AppDataSnapshot['workouts'];
+  progress: AppDataSnapshot['progress'];
+  quests: AppDataSnapshot['quests'];
+  rewards: AppDataSnapshot['rewards'];
+  cosmetics: AppDataSnapshot['cosmetics'];
+  friendships: AppDataSnapshot['friendships'];
+  posts: AppDataSnapshot['posts'];
+  comments: AppDataSnapshot['comments'];
+  yearlySummary: AppDataSnapshot['yearlySummary'];
   leaderboardScope: LeaderboardScope;
   workoutDraft: WorkoutDraft | null;
   lastWorkoutReward: WorkoutRewardBreakdown | null;
   lastWorkout: Workout | null;
   totalExerciseCount: number;
-  completeOnboarding: (input: CompleteOnboardingInput) => void;
+  authenticate: (input: AuthInput) => Promise<string | null>;
+  signOut: () => Promise<void>;
   setActiveScreen: (screen: ScreenKey) => void;
   setLeaderboardScope: (scope: LeaderboardScope) => void;
   startWorkout: (routineId?: string) => void;
@@ -79,52 +89,183 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
 
+function replaceCurrentUser(snapshot: AppDataSnapshot, currentUser: AppDataSnapshot['currentUser']) {
+  return {
+    ...snapshot,
+    currentUser,
+    users: [
+      currentUser,
+      ...snapshot.users.filter(
+        (user) => user.id !== snapshot.currentUser.id && user.id !== currentUser.id
+      ),
+    ],
+  };
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return 'Something went wrong. Please try again.';
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isHydrating, setIsHydrating] = useState(true);
+  const [authPending, setAuthPending] = useState(false);
   const [activeScreen, setActiveScreen] = useState<ScreenKey>('home');
   const [leaderboardScope, setLeaderboardScope] = useState<LeaderboardScope>('friends');
-  const [currentUser, setCurrentUser] = useState(seedDatabase.currentUser);
-  const [users, setUsers] = useState(seedDatabase.users);
-  const [exercises] = useState(seedDatabase.exercises);
-  const [routines] = useState(seedDatabase.routines);
-  const [workouts, setWorkouts] = useState(seedDatabase.workouts);
-  const [progress, setProgress] = useState(seedDatabase.progress);
-  const [quests, setQuests] = useState(seedDatabase.quests);
-  const [rewards, setRewards] = useState(seedDatabase.rewards);
-  const [cosmetics, setCosmetics] = useState(seedDatabase.cosmetics);
-  const [friendships, setFriendships] = useState(seedDatabase.friendships);
-  const [posts, setPosts] = useState(seedDatabase.posts);
-  const [comments, setComments] = useState(seedDatabase.comments);
-  const [yearlySummary, setYearlySummary] = useState(seedDatabase.yearlySummary);
+  const [snapshot, setSnapshot] = useState<AppDataSnapshot>({
+    currentUser: seedDatabase.currentUser,
+    users: seedDatabase.users,
+    routines: seedDatabase.routines,
+    workouts: seedDatabase.workouts,
+    progress: seedDatabase.progress,
+    quests: seedDatabase.quests,
+    rewards: seedDatabase.rewards,
+    cosmetics: seedDatabase.cosmetics,
+    friendships: seedDatabase.friendships,
+    posts: seedDatabase.posts,
+    comments: seedDatabase.comments,
+    yearlySummary: seedDatabase.yearlySummary,
+  });
   const [workoutDraft, setWorkoutDraft] = useState<WorkoutDraft | null>(null);
   const [lastWorkoutReward, setLastWorkoutReward] = useState<WorkoutRewardBreakdown | null>(null);
   const [lastWorkout, setLastWorkout] = useState<Workout | null>(null);
 
-  function syncCurrentUser(updatedUser: UserProfile) {
-    setCurrentUser(updatedUser);
-    setUsers((existing) =>
-      existing.map((user) => (user.id === updatedUser.id ? updatedUser : user))
-    );
+  const supabaseEnabled = isSupabaseConfigured();
+
+  async function persistSnapshot(nextSnapshot: AppDataSnapshot, nextAuth = isAuthenticated) {
+    setSnapshot(nextSnapshot);
+    await saveLocalSnapshot(nextSnapshot, nextAuth);
+
+    if (supabaseEnabled && nextAuth) {
+      await saveRemoteSnapshot(nextSnapshot);
+    }
   }
 
-  function completeOnboarding(input: CompleteOnboardingInput) {
-    const updatedUser: UserProfile = {
-      ...currentUser,
-      username: input.username.trim() || currentUser.username,
-      displayName: input.displayName.trim() || currentUser.displayName,
-      bio: input.bio.trim() || currentUser.bio,
-    };
+  useEffect(() => {
+    let cancelled = false;
 
-    syncCurrentUser(updatedUser);
-    setYearlySummary(buildYearlySummary(updatedUser, workouts));
-    setIsAuthenticated(true);
+    async function hydrate() {
+      try {
+        if (supabaseEnabled) {
+          const authUser = await restoreRemoteSession();
+
+          if (authUser) {
+            const remoteSnapshot = await loadRemoteSnapshot(authUser);
+
+            if (remoteSnapshot) {
+              if (!cancelled) {
+                setSnapshot(mergeRemoteSnapshotWithDemo(remoteSnapshot));
+                setIsAuthenticated(true);
+              }
+            }
+          }
+        } else {
+          const local = await loadLocalSnapshot();
+
+          if (local.snapshot && !cancelled) {
+            setSnapshot(local.snapshot);
+            setIsAuthenticated(Boolean(local.auth?.isAuthenticated));
+          }
+        }
+      } catch (error) {
+        console.warn('GymXP hydration failed:', error);
+      } finally {
+        if (!cancelled) {
+          setIsHydrating(false);
+        }
+      }
+    }
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabaseEnabled]);
+
+  async function authenticate(input: AuthInput) {
+    setAuthPending(true);
+
+    try {
+      if (supabaseEnabled) {
+        const authUser =
+          input.mode === 'signup'
+            ? await signUpRemote(input.email.trim(), input.password)
+            : await signInRemote(input.email.trim(), input.password);
+
+        let remoteSnapshot = await loadRemoteSnapshot(authUser);
+
+        if (!remoteSnapshot) {
+          const freshUser = createFreshUserProfile(authUser.id, input);
+          remoteSnapshot = createFreshUserSnapshot(freshUser);
+          await saveRemoteSnapshot(remoteSnapshot);
+        }
+
+        const mergedSnapshot = mergeRemoteSnapshotWithDemo(remoteSnapshot);
+        await saveLocalSnapshot(mergedSnapshot, true);
+        setSnapshot(mergedSnapshot);
+        setIsAuthenticated(true);
+        setActiveScreen('home');
+        return null;
+      }
+
+      const local = await loadLocalSnapshot();
+      const nextSnapshot =
+        input.mode === 'login' && local.snapshot
+          ? local.snapshot
+          : createPersonalizedDemoSnapshot(
+              input,
+              local.snapshot ?? {
+                currentUser: seedDatabase.currentUser,
+                users: seedDatabase.users,
+                routines: seedDatabase.routines,
+                workouts: seedDatabase.workouts,
+                progress: seedDatabase.progress,
+                quests: seedDatabase.quests,
+                rewards: seedDatabase.rewards,
+                cosmetics: seedDatabase.cosmetics,
+                friendships: seedDatabase.friendships,
+                posts: seedDatabase.posts,
+                comments: seedDatabase.comments,
+                yearlySummary: seedDatabase.yearlySummary,
+              }
+            );
+
+      await saveLocalSnapshot(nextSnapshot, true);
+      setSnapshot(nextSnapshot);
+      setIsAuthenticated(true);
+      setActiveScreen('home');
+      return null;
+    } catch (error) {
+      return getErrorMessage(error);
+    } finally {
+      setAuthPending(false);
+    }
+  }
+
+  async function signOut() {
+    setWorkoutDraft(null);
+    setLastWorkout(null);
+    setLastWorkoutReward(null);
+    setActiveScreen('home');
+
+    if (supabaseEnabled) {
+      await signOutRemote();
+    }
+
+    await clearLocalAuthFlag();
+    setIsAuthenticated(false);
   }
 
   function startWorkout(routineId?: string) {
-    const selectedRoutine = routines.find((routine) => routine.id === routineId);
+    const selectedRoutine = snapshot.routines.find((routine) => routine.id === routineId);
     const selectedExercises = selectedRoutine
       ? selectedRoutine.exerciseIds
-          .map((exerciseId) => exercises.find((item) => item.id === exerciseId))
+          .map((exerciseId) => seedDatabase.exercises.find((item) => item.id === exerciseId))
           .filter((item): item is Exercise => Boolean(item))
       : [];
 
@@ -139,7 +280,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   function addExerciseToDraft(exerciseId: string) {
-    const exercise = exercises.find((item) => item.id === exerciseId);
+    const exercise = seedDatabase.exercises.find((item) => item.id === exerciseId);
 
     if (!exercise) {
       return;
@@ -259,13 +400,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const result = buildWorkoutFromDraft(workoutDraft, currentUser, workouts, quests);
-    const cosmeticUnlock = unlockPrCosmetics(currentUser.totalPrs, result.user, cosmetics);
-    const finalUser = result.user;
-    const finalReward = {
-      ...result.reward,
-      unlockedCosmetics: cosmeticUnlock.unlockedCosmetics,
-    };
+    const result = buildWorkoutFromDraft(
+      workoutDraft,
+      snapshot.currentUser,
+      snapshot.workouts,
+      snapshot.quests
+    );
+    const cosmeticUnlock = unlockPrCosmetics(
+      snapshot.currentUser.totalPrs,
+      result.user,
+      snapshot.cosmetics
+    );
     const autoPost = cosmeticUnlock.unlockedCosmetics.length
       ? {
           ...result.autoPost,
@@ -275,39 +420,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ],
         }
       : result.autoPost;
-    const nextWorkouts = [result.workout, ...workouts];
-    const nextProgress = [result.snapshot, ...progress];
-    const nextPosts = [autoPost, ...posts];
+    const nextSnapshot = replaceCurrentUser(
+      {
+        ...snapshot,
+        workouts: [result.workout, ...snapshot.workouts],
+        progress: [result.snapshot, ...snapshot.progress],
+        quests: result.quests,
+        cosmetics: cosmeticUnlock.cosmetics,
+        posts: [autoPost, ...snapshot.posts],
+        yearlySummary: buildYearlySummary(result.user, [result.workout, ...snapshot.workouts]),
+      },
+      result.user
+    );
 
-    syncCurrentUser(finalUser);
-    setWorkouts(nextWorkouts);
-    setProgress(nextProgress);
-    setQuests(result.quests);
-    setPosts(nextPosts);
-    setCosmetics(cosmeticUnlock.cosmetics);
-    setYearlySummary(buildYearlySummary(finalUser, nextWorkouts));
-    setLastWorkoutReward(finalReward);
+    setLastWorkoutReward({
+      ...result.reward,
+      unlockedCosmetics: cosmeticUnlock.unlockedCosmetics,
+    });
     setLastWorkout(result.workout);
     setWorkoutDraft(null);
     setActiveScreen('summary');
+    void persistSnapshot(nextSnapshot);
   }
 
   function likePost(postId: string) {
-    setPosts((existing) =>
-      existing.map((post) => {
+    const nextSnapshot = {
+      ...snapshot,
+      posts: snapshot.posts.map((post) => {
         if (post.id !== postId) {
           return post;
         }
 
-        const alreadyLiked = post.likeUserIds.includes(currentUser.id);
+        const alreadyLiked = post.likeUserIds.includes(snapshot.currentUser.id);
         return {
           ...post,
           likeUserIds: alreadyLiked
-            ? post.likeUserIds.filter((userId) => userId !== currentUser.id)
-            : [...post.likeUserIds, currentUser.id],
+            ? post.likeUserIds.filter((userId) => userId !== snapshot.currentUser.id)
+            : [...post.likeUserIds, snapshot.currentUser.id],
         };
-      })
-    );
+      }),
+    };
+
+    void persistSnapshot(nextSnapshot);
   }
 
   function addComment(postId: string, content: string) {
@@ -316,69 +470,79 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const comment: PostComment = {
+    const comment = {
       id: `comment-${Date.now()}`,
       postId,
-      authorId: currentUser.id,
+      authorId: snapshot.currentUser.id,
       createdAt: new Date().toISOString(),
       content: trimmed,
     };
-
-    setComments((existing) => [comment, ...existing]);
-    setPosts((existing) =>
-      existing.map((post) =>
+    const nextSnapshot = {
+      ...snapshot,
+      comments: [comment, ...snapshot.comments],
+      posts: snapshot.posts.map((post) =>
         post.id === postId ? { ...post, commentIds: [...post.commentIds, comment.id] } : post
-      )
-    );
+      ),
+    };
+
+    void persistSnapshot(nextSnapshot);
   }
 
   function toggleFollow(userId: string) {
-    setFriendships((existing) => {
-      const relationship = existing.find(
-        (friendship) => friendship.userId === currentUser.id && friendship.friendId === userId
-      );
+    const relationship = snapshot.friendships.find(
+      (friendship) =>
+        friendship.userId === snapshot.currentUser.id && friendship.friendId === userId
+    );
+    const nextSnapshot = {
+      ...snapshot,
+      friendships: relationship
+        ? snapshot.friendships.filter((friendship) => friendship.id !== relationship.id)
+        : [
+            ...snapshot.friendships,
+            {
+              id: toId(`${snapshot.currentUser.id}-${userId}`),
+              userId: snapshot.currentUser.id,
+              friendId: userId,
+              status: 'following' as const,
+            },
+          ],
+    };
 
-      if (relationship) {
-        return existing.filter((friendship) => friendship.id !== relationship.id);
-      }
-
-      return [
-        ...existing,
-        {
-          id: toId(`${currentUser.id}-${userId}`),
-          userId: currentUser.id,
-          friendId: userId,
-          status: 'following',
-        },
-      ];
-    });
+    void persistSnapshot(nextSnapshot);
   }
 
   function unlockReward(rewardId: string) {
-    const reward = rewards.find((item) => item.id === rewardId);
+    const reward = snapshot.rewards.find((item) => item.id === rewardId);
 
-    if (!reward || reward.unlocked || reward.cost > currentUser.currency) {
+    if (!reward || reward.unlocked || reward.cost > snapshot.currentUser.currency) {
       return;
     }
 
     const updatedUser = {
-      ...currentUser,
-      currency: currentUser.currency - reward.cost,
+      ...snapshot.currentUser,
+      currency: snapshot.currentUser.currency - reward.cost,
       badges:
         reward.kind === 'badge'
-          ? [...currentUser.badges, { id: reward.id, label: reward.name, tone: '#f2c45a' }]
-          : currentUser.badges,
+          ? [...snapshot.currentUser.badges, { id: reward.id, label: reward.name, tone: '#f2c45a' }]
+          : snapshot.currentUser.badges,
     };
 
-    syncCurrentUser(updatedUser);
-    setRewards((existing) =>
-      existing.map((item) => (item.id === rewardId ? { ...item, unlocked: true } : item))
+    const nextSnapshot = replaceCurrentUser(
+      {
+        ...snapshot,
+        rewards: snapshot.rewards.map((item) =>
+          item.id === rewardId ? { ...item, unlocked: true } : item
+        ),
+        yearlySummary: buildYearlySummary(updatedUser, snapshot.workouts),
+      },
+      updatedUser
     );
-    setYearlySummary(buildYearlySummary(updatedUser, workouts));
+
+    void persistSnapshot(nextSnapshot);
   }
 
   function selectAvatarCosmetic(slot: CosmeticSlot, cosmeticId: string) {
-    const cosmetic = cosmetics.find((item) => item.id === cosmeticId);
+    const cosmetic = snapshot.cosmetics.find((item) => item.id === cosmeticId);
 
     if (!cosmetic || !cosmetic.unlocked || cosmetic.slot !== slot) {
       return;
@@ -386,43 +550,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const nextAvatar =
       slot === 'frame'
-        ? { ...currentUser.avatar, frameId: cosmeticId }
+        ? { ...snapshot.currentUser.avatar, frameId: cosmeticId }
         : slot === 'face'
-          ? { ...currentUser.avatar, faceId: cosmeticId }
+          ? { ...snapshot.currentUser.avatar, faceId: cosmeticId }
           : slot === 'top'
-            ? { ...currentUser.avatar, topId: cosmeticId }
-            : { ...currentUser.avatar, auraId: cosmeticId };
+            ? { ...snapshot.currentUser.avatar, topId: cosmeticId }
+            : { ...snapshot.currentUser.avatar, auraId: cosmeticId };
 
-    syncCurrentUser({
-      ...currentUser,
+    const nextSnapshot = replaceCurrentUser(snapshot, {
+      ...snapshot.currentUser,
       avatar: nextAvatar,
     });
+
+    void persistSnapshot(nextSnapshot);
   }
 
   return (
     <AppContext.Provider
       value={{
         isAuthenticated,
+        isHydrating,
+        authPending,
+        isBackendConfigured: supabaseEnabled,
         activeScreen,
-        currentUser,
-        users,
-        exercises,
-        routines,
-        workouts,
-        progress,
-        quests,
-        rewards,
-        cosmetics,
-        friendships,
-        posts,
-        comments,
-        yearlySummary,
+        currentUser: snapshot.currentUser,
+        users: snapshot.users,
+        exercises: seedDatabase.exercises,
+        routines: snapshot.routines,
+        workouts: snapshot.workouts,
+        progress: snapshot.progress,
+        quests: snapshot.quests,
+        rewards: snapshot.rewards,
+        cosmetics: snapshot.cosmetics,
+        friendships: snapshot.friendships,
+        posts: snapshot.posts,
+        comments: snapshot.comments,
+        yearlySummary: snapshot.yearlySummary,
         leaderboardScope,
         workoutDraft,
         lastWorkoutReward,
         lastWorkout,
         totalExerciseCount: seedDatabase.totalExerciseCount,
-        completeOnboarding,
+        authenticate,
+        signOut,
         setActiveScreen,
         setLeaderboardScope,
         startWorkout,

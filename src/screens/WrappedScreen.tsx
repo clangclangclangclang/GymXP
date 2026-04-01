@@ -103,11 +103,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.4,
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
   },
   shareTitle: {
     color: theme.colors.text,
     fontSize: 30,
     fontWeight: '900',
+    fontFamily: theme.fonts.display,
   },
   shareRank: {
     color: theme.colors.warning,
@@ -138,9 +140,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 12,
+    fontFamily: theme.fonts.display,
   },
   stack: {
     gap: 10,
@@ -180,12 +183,15 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     paddingVertical: 16,
   },
   primaryButtonText: {
     color: theme.colors.background,
     fontWeight: '900',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

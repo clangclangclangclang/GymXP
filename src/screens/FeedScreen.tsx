@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { AvatarPreview } from '../components/AvatarPreview';
 import { RankBadge } from '../components/RankBadge';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SurfaceCard } from '../components/SurfaceCard';
@@ -9,7 +10,7 @@ import { theme } from '../theme/theme';
 import { formatDateLabel } from '../utils/format';
 
 export function FeedScreen() {
-  const { posts, users, comments, likePost, addComment } = useApp();
+  const { posts, users, comments, cosmetics, likePost, addComment } = useApp();
   const [draftComments, setDraftComments] = useState<Record<string, string>>({});
 
   return (
@@ -32,9 +33,12 @@ export function FeedScreen() {
           return (
             <SurfaceCard key={post.id}>
               <View style={styles.headerRow}>
-                <View style={styles.headerCopy}>
-                  <Text style={styles.authorName}>{author.displayName}</Text>
-                  <Text style={styles.timestamp}>{formatDateLabel(post.createdAt)} / @{author.username}</Text>
+                <View style={styles.headerProfile}>
+                  <AvatarPreview user={author} cosmetics={cosmetics} size={66} compact />
+                  <View style={styles.headerCopy}>
+                    <Text style={styles.authorName}>{author.displayName}</Text>
+                    <Text style={styles.timestamp}>{formatDateLabel(post.createdAt)} / @{author.username}</Text>
+                  </View>
                 </View>
                 <RankBadge rank={author.rank} />
               </View>
@@ -116,7 +120,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 12,
+  },
+  headerProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
   headerCopy: {
     flex: 1,
@@ -125,11 +136,13 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: theme.fonts.display,
   },
   timestamp: {
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: 4,
+    fontFamily: theme.fonts.mono,
   },
   postTitle: {
     color: theme.colors.text,
@@ -137,6 +150,7 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontWeight: '800',
     marginTop: 16,
+    fontFamily: theme.fonts.display,
   },
   postCopy: {
     color: theme.colors.textMuted,
@@ -152,13 +166,16 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.surfaceSoft,
   },
   chipText: {
     color: theme.colors.accent,
     fontWeight: '700',
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   actionRow: {
     flexDirection: 'row',
@@ -168,12 +185,15 @@ const styles = StyleSheet.create({
   actionButton: {
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.surfaceSoft,
   },
   actionText: {
     color: theme.colors.text,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   commentCount: {
     justifyContent: 'center',
@@ -219,11 +239,14 @@ const styles = StyleSheet.create({
   postButton: {
     backgroundColor: theme.colors.accent,
     paddingHorizontal: 16,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     justifyContent: 'center',
   },
   postButtonText: {
     color: theme.colors.background,
     fontWeight: '800',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

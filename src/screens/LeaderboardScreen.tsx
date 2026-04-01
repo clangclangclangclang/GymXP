@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AvatarPreview } from '../components/AvatarPreview';
 import { RankBadge } from '../components/RankBadge';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SurfaceCard } from '../components/SurfaceCard';
@@ -8,7 +9,7 @@ import { useApp } from '../state/AppProvider';
 import { theme } from '../theme/theme';
 
 export function LeaderboardScreen() {
-  const { currentUser, users, friendships, leaderboardScope, setLeaderboardScope } = useApp();
+  const { currentUser, users, friendships, cosmetics, leaderboardScope, setLeaderboardScope } = useApp();
   const friendIds = friendships
     .filter((friendship) => friendship.userId === currentUser.id)
     .map((friendship) => friendship.friendId);
@@ -64,6 +65,9 @@ export function LeaderboardScreen() {
               ]}
             >
               <Text style={styles.podiumPlace}>#{index + 1}</Text>
+              <View style={styles.podiumAvatarWrap}>
+                <AvatarPreview user={user} cosmetics={cosmetics} size={92} compact />
+              </View>
               <Text style={styles.podiumName}>{user.displayName}</Text>
               <Text style={styles.podiumXp}>{user.xp} XP</Text>
               <Text style={styles.podiumMeta}>{user.streak} day streak</Text>
@@ -78,6 +82,7 @@ export function LeaderboardScreen() {
           {rest.map((user, index) => (
             <View key={user.id} style={styles.row}>
               <Text style={styles.rowPlace}>#{index + 4}</Text>
+              <AvatarPreview user={user} cosmetics={cosmetics} size={58} compact />
               <View style={styles.rowCopy}>
                 <Text style={styles.rowName}>{user.displayName}</Text>
                 <Text style={styles.rowMeta}>
@@ -107,7 +112,7 @@ const styles = StyleSheet.create({
   },
   toggleButton: {
     flex: 1,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
@@ -120,15 +125,19 @@ const styles = StyleSheet.create({
   toggleText: {
     color: theme.colors.textMuted,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   toggleTextActive: {
     color: theme.colors.background,
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 12,
+    fontFamily: theme.fonts.display,
   },
   podiumRow: {
     gap: 10,
@@ -138,24 +147,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: theme.colors.surfaceSoft,
     padding: 16,
+    alignItems: 'center',
   },
   podiumPlace: {
     color: theme.colors.textMuted,
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 1,
+    fontFamily: theme.fonts.mono,
+  },
+  podiumAvatarWrap: {
+    marginTop: 8,
+    marginBottom: 6,
   },
   podiumName: {
     color: theme.colors.text,
     fontSize: 18,
     fontWeight: '800',
     marginTop: 6,
+    fontFamily: theme.fonts.display,
   },
   podiumXp: {
     color: theme.colors.accent,
     fontSize: 22,
     fontWeight: '900',
     marginTop: 8,
+    fontFamily: theme.fonts.display,
   },
   podiumMeta: {
     color: theme.colors.textMuted,
@@ -184,11 +201,13 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: '700',
     fontSize: 15,
+    fontFamily: theme.fonts.display,
   },
   rowMeta: {
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: 4,
+    fontFamily: theme.fonts.mono,
   },
   rowRight: {
     alignItems: 'flex-end',
@@ -198,5 +217,6 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontWeight: '800',
     fontSize: 13,
+    fontFamily: theme.fonts.mono,
   },
 });

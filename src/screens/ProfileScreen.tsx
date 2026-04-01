@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AvatarPreview } from '../components/AvatarPreview';
@@ -28,7 +28,10 @@ export function ProfileScreen() {
     toggleFollow,
     selectAvatarCosmetic,
     setActiveScreen,
+    signOut,
+    isBackendConfigured,
   } = useApp();
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const friendIds = friendships
     .filter((friendship) => friendship.userId === currentUser.id)
     .map((friendship) => friendship.friendId);
@@ -53,6 +56,16 @@ export function ProfileScreen() {
     }
 
     return currentUser.avatar.auraId === cosmeticId;
+  }
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+
+    try {
+      await signOut();
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   return (
@@ -82,9 +95,39 @@ export function ProfileScreen() {
       </SurfaceCard>
 
       <SurfaceCard>
+        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionCopy}>
+          {isBackendConfigured
+            ? 'Supabase sync is active for this account. Your profile, workouts, progress, and unlocks persist across sessions.'
+            : 'Running in local fallback mode. Data is still persistent on this device, and you can switch to Supabase later by adding the public keys.'}
+        </Text>
+        <View style={styles.accountMeta}>
+          <Text style={styles.accountLabel}>Email</Text>
+          <Text style={styles.accountValue}>{currentUser.email ?? 'Local-only profile'}</Text>
+        </View>
+        <View style={styles.accountMeta}>
+          <Text style={styles.accountLabel}>Storage</Text>
+          <Text style={styles.accountValue}>
+            {isBackendConfigured ? 'Supabase + local cache' : 'Local device storage'}
+          </Text>
+        </View>
+        <Pressable
+          style={[styles.secondaryButton, isSigningOut ? styles.secondaryButtonDisabled : null]}
+          onPress={() => {
+            void handleSignOut();
+          }}
+          disabled={isSigningOut}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {isSigningOut ? 'Signing out...' : 'Sign Out'}
+          </Text>
+        </Pressable>
+      </SurfaceCard>
+
+      <SurfaceCard>
         <Text style={styles.sectionTitle}>Avatar Lab</Text>
         <Text style={styles.sectionCopy}>
-          Every unlocked cosmetic can be mixed into your look. Your next milestone should change how your profile feels, not just your stats.
+          Build your arcade fitness badge by mixing chassis, sigils, stripes, and halos unlocked from PR milestones.
         </Text>
         <View style={styles.stack}>
           {slotSections.map((section) => (
@@ -103,16 +146,36 @@ export function ProfileScreen() {
                       ]}
                       onPress={() => selectAvatarCosmetic(section.slot, cosmetic.id)}
                     >
-                      <Text
-                        style={[
-                          styles.optionChipText,
-                          isSelected(section.slot, cosmetic.id)
-                            ? styles.optionChipTextActive
-                            : { color: cosmetic.tone },
-                        ]}
-                      >
-                        {cosmetic.name}
-                      </Text>
+                      <View style={styles.optionChipInner}>
+                        <View style={styles.swatchCol}>
+                          <View
+                            style={[
+                              styles.swatchMain,
+                              { backgroundColor: isSelected(section.slot, cosmetic.id) ? theme.colors.background : cosmetic.tone },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.swatchAccent,
+                              {
+                                backgroundColor: isSelected(section.slot, cosmetic.id)
+                                  ? theme.colors.backgroundAlt
+                                  : cosmetic.accentTone ?? theme.colors.textMuted,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.optionChipText,
+                            isSelected(section.slot, cosmetic.id)
+                              ? styles.optionChipTextActive
+                              : { color: cosmetic.tone },
+                          ]}
+                        >
+                          {cosmetic.name}
+                        </Text>
+                      </View>
                     </Pressable>
                   ))}
               </View>
@@ -219,6 +282,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     lineHeight: 22,
     fontSize: 15,
+    fontFamily: theme.fonts.display,
   },
   profileHint: {
     color: theme.colors.textMuted,
@@ -230,9 +294,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 12,
+    fontFamily: theme.fonts.display,
   },
   sectionCopy: {
     color: theme.colors.textMuted,
@@ -250,6 +315,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
   },
   optionWrap: {
     flexDirection: 'row',
@@ -258,17 +324,39 @@ const styles = StyleSheet.create({
   },
   optionChip: {
     borderWidth: 1,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    backgroundColor: theme.colors.surfaceSoft,
   },
   optionChipActive: {
     backgroundColor: theme.colors.accent,
     borderColor: theme.colors.accent,
   },
+  optionChipInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  swatchCol: {
+    gap: 4,
+  },
+  swatchMain: {
+    width: 18,
+    height: 6,
+    borderRadius: theme.radius.pill,
+  },
+  swatchAccent: {
+    width: 12,
+    height: 4,
+    borderRadius: theme.radius.pill,
+  },
   optionChipText: {
     fontWeight: '700',
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   optionChipTextActive: {
     color: theme.colors.background,
@@ -311,13 +399,57 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignSelf: 'flex-start',
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     paddingVertical: 14,
     paddingHorizontal: 18,
   },
   primaryButtonText: {
     color: theme.colors.background,
     fontWeight: '800',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  accountMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  accountLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  accountValue: {
+    color: theme.colors.text,
+    fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  secondaryButton: {
+    alignSelf: 'flex-start',
+    marginTop: 16,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceSoft,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  secondaryButtonText: {
+    color: theme.colors.text,
+    fontWeight: '800',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   friendRow: {
     flexDirection: 'row',
@@ -345,11 +477,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
   },
   followButtonText: {
     color: theme.colors.text,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   historyRow: {
     flexDirection: 'row',

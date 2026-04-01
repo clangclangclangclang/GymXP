@@ -7,6 +7,7 @@ export type PostType = 'workout' | 'pr' | 'streak' | 'summary';
 export type LeaderboardScope = 'friends' | 'global';
 export type CosmeticSlot = 'frame' | 'face' | 'top' | 'aura';
 export type CosmeticUnlockSource = 'starter' | 'pr_milestone';
+export type AuthMode = 'signup' | 'login';
 export type ScreenKey =
   | 'home'
   | 'workout'
@@ -45,6 +46,7 @@ export interface CosmeticItem {
 
 export interface UserProfile {
   id: string;
+  email?: string;
   username: string;
   displayName: string;
   photoUrl?: string;
@@ -245,4 +247,28 @@ export interface WorkoutRewardBreakdown {
   completedQuestIds: string[];
   discoveredPrs: string[];
   unlockedCosmetics: CosmeticItem[];
+}
+
+export interface AuthInput {
+  mode: AuthMode;
+  email: string;
+  password: string;
+  username: string;
+  displayName: string;
+  bio: string;
+}
+
+export interface AppDataSnapshot {
+  currentUser: UserProfile;
+  users: UserProfile[];
+  routines: RoutineTemplate[];
+  workouts: Workout[];
+  progress: ProgressSnapshot[];
+  quests: Quest[];
+  rewards: RewardItem[];
+  cosmetics: CosmeticItem[];
+  friendships: Friendship[];
+  posts: Post[];
+  comments: PostComment[];
+  yearlySummary: YearlySummary;
 }

@@ -16,7 +16,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     borderWidth: 1,
   },
   label: {
@@ -24,5 +24,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     textTransform: 'uppercase',
+    fontFamily: theme.fonts.mono,
   },
 });

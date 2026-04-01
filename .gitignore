@@ -31,6 +31,7 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+.idea/
 
 # local env files
 .env*.local
@@ -40,4 +41,3 @@ yarn-error.*
 
 # generated native folders
 /ios
-/android

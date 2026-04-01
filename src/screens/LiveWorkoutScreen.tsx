@@ -223,19 +223,23 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     paddingVertical: 16,
   },
   primaryButtonText: {
     color: theme.colors.background,
     fontWeight: '800',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 12,
+    fontFamily: theme.fonts.display,
   },
   stack: {
     gap: 14,
@@ -259,6 +263,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: theme.colors.surfaceElevated,
+    borderColor: theme.colors.accentAlt,
   },
   metricRow: {
     flexDirection: 'row',
@@ -267,13 +272,17 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     color: theme.colors.text,
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
+    fontFamily: theme.fonts.display,
   },
   summaryLabel: {
     color: theme.colors.textMuted,
     fontSize: 12,
     marginTop: 4,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   searchInput: {
     backgroundColor: theme.colors.surfaceSoft,
@@ -317,6 +326,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: theme.fonts.display,
   },
   exerciseSubtitle: {
     color: theme.colors.textMuted,
@@ -384,15 +394,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     backgroundColor: theme.colors.surfaceSoft,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
   },
   addSetText: {
     color: theme.colors.accentAlt,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   finishButton: {
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     paddingVertical: 18,
     alignItems: 'center',
   },
@@ -400,12 +413,15 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
     fontWeight: '900',
     fontSize: 15,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   secondaryMiniButton: {
     paddingVertical: 10,
     paddingHorizontal: 14,
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -413,5 +429,8 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: '700',
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

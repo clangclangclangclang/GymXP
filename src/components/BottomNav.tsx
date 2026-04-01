@@ -53,22 +53,27 @@ const styles = StyleSheet.create({
   tab: {
     flexGrow: 1,
     minWidth: '30%',
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     paddingVertical: 10,
     paddingHorizontal: 12,
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   activeTab: {
     backgroundColor: theme.colors.accent,
+    borderColor: theme.colors.accent,
   },
   label: {
     color: theme.colors.textMuted,
     fontWeight: '600',
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   activeLabel: {
     color: theme.colors.background,
   },
 });
-

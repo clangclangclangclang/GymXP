@@ -43,11 +43,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     marginBottom: 8,
+    fontFamily: theme.fonts.mono,
   },
   title: {
     color: theme.colors.text,
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+    fontFamily: theme.fonts.display,
   },
   subtitle: {
     color: theme.colors.textMuted,
@@ -56,4 +59,3 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
-

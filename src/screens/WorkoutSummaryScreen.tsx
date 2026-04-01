@@ -148,17 +148,20 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: theme.colors.surfaceElevated,
     gap: 14,
+    borderColor: theme.colors.accentAlt,
   },
   heroLabel: {
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1.4,
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
   },
   heroValue: {
     color: theme.colors.text,
-    fontSize: 32,
+    fontSize: 40,
     fontWeight: '900',
+    fontFamily: theme.fonts.display,
   },
   heroCopy: {
     color: theme.colors.textMuted,
@@ -170,9 +173,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 12,
+    fontFamily: theme.fonts.display,
   },
   spacer: {
     height: 14,
@@ -185,12 +189,15 @@ const styles = StyleSheet.create({
   rewardChip: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.surfaceSoft,
   },
   rewardChipText: {
     color: theme.colors.accent,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   stack: {
     gap: 10,
@@ -217,7 +224,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     flex: 1,
     paddingVertical: 16,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
@@ -226,17 +233,23 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: theme.colors.text,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   primaryButton: {
     flex: 1,
     paddingVertical: 16,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     backgroundColor: theme.colors.accent,
   },
   primaryButtonText: {
     color: theme.colors.background,
     fontWeight: '900',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   footerLink: {
     alignItems: 'center',

@@ -6,12 +6,30 @@ import { useApp } from '../state/AppProvider';
 import { theme } from '../theme/theme';
 
 export function OnboardingScreen() {
-  const { completeOnboarding, totalExerciseCount } = useApp();
+  const { authenticate, authPending, isBackendConfigured, totalExerciseCount } = useApp();
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
+  const [email, setEmail] = useState('nephi@gymxp.app');
   const [username, setUsername] = useState('liftnephi');
   const [displayName, setDisplayName] = useState('Nephi Steele');
   const [bio, setBio] = useState('Chasing stronger lifts, cleaner reps, and longer streaks.');
   const [password, setPassword] = useState('gymxp-demo');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function submit() {
+    setErrorMessage(null);
+    const error = await authenticate({
+      mode,
+      email,
+      password,
+      username,
+      displayName,
+      bio,
+    });
+
+    if (error) {
+      setErrorMessage(error);
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -27,7 +45,7 @@ export function OnboardingScreen() {
         <Text style={styles.valueTitle}>MVP included</Text>
         <View style={styles.valueList}>
           <Text style={styles.valueItem}>Fast workout logging and workout history</Text>
-          <Text style={styles.valueItem}>Rank, XP, streaks, quests, and rewards</Text>
+          <Text style={styles.valueItem}>Rank, XP, streaks, quests, rewards, and avatars</Text>
           <Text style={styles.valueItem}>Friends feed, leaderboard, and yearly Gym Wrapped</Text>
           <Text style={styles.valueItem}>{totalExerciseCount}+ exercises ready to search</Text>
         </View>
@@ -53,18 +71,30 @@ export function OnboardingScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.formLabel}>Username</Text>
+        <Text style={styles.formLabel}>Email</Text>
         <TextInput
           autoCapitalize="none"
-          value={username}
-          onChangeText={setUsername}
+          autoCorrect={false}
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
           style={styles.input}
-          placeholder="liftnephi"
+          placeholder="you@example.com"
           placeholderTextColor={theme.colors.textDim}
         />
 
         {mode === 'signup' && (
           <>
+            <Text style={styles.formLabel}>Username</Text>
+            <TextInput
+              autoCapitalize="none"
+              value={username}
+              onChangeText={setUsername}
+              style={styles.input}
+              placeholder="liftnephi"
+              placeholderTextColor={theme.colors.textDim}
+            />
+
             <Text style={styles.formLabel}>Display Name</Text>
             <TextInput
               value={displayName}
@@ -97,21 +127,26 @@ export function OnboardingScreen() {
         />
 
         <Text style={styles.helper}>
-          Demo auth for the MVP. The app is structured so this can be swapped to a real backend auth provider later.
+          {isBackendConfigured
+            ? 'Supabase mode is active. Sign up creates a real account and persists your profile, workouts, progress, and unlocks.'
+            : 'Supabase keys are not configured yet, so GymXP will use local persistent storage on this device as a safe fallback.'}
         </Text>
 
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
         <Pressable
-          style={styles.primaryButton}
-          onPress={() =>
-            completeOnboarding({
-              username,
-              displayName: displayName || username,
-              bio,
-            })
-          }
+          style={[styles.primaryButton, authPending ? styles.primaryButtonDisabled : null]}
+          onPress={() => {
+            void submit();
+          }}
+          disabled={authPending}
         >
           <Text style={styles.primaryButtonText}>
-            {mode === 'signup' ? 'Enter GymXP' : 'Continue To Dashboard'}
+            {authPending
+              ? 'Connecting...'
+              : mode === 'signup'
+                ? 'Enter GymXP'
+                : 'Continue To Dashboard'}
           </Text>
         </Pressable>
       </SurfaceCard>
@@ -133,12 +168,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 2,
     textTransform: 'uppercase',
+    fontFamily: theme.fonts.mono,
   },
   title: {
     color: theme.colors.text,
-    fontSize: 38,
-    lineHeight: 42,
+    fontSize: 46,
+    lineHeight: 50,
     fontWeight: '900',
+    fontFamily: theme.fonts.display,
   },
   subtitle: {
     color: theme.colors.textMuted,
@@ -147,12 +184,14 @@ const styles = StyleSheet.create({
   },
   valueCard: {
     backgroundColor: theme.colors.surfaceElevated,
+    borderColor: theme.colors.accentAlt,
   },
   valueTitle: {
     color: theme.colors.text,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
+    fontFamily: theme.fonts.display,
   },
   valueList: {
     gap: 8,
@@ -170,9 +209,11 @@ const styles = StyleSheet.create({
   modeButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.surfaceSoft,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   modeButtonActive: {
     backgroundColor: theme.colors.accent,
@@ -180,6 +221,9 @@ const styles = StyleSheet.create({
   modeText: {
     color: theme.colors.textMuted,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   modeTextActive: {
     color: theme.colors.background,
@@ -190,6 +234,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 10,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   input: {
     backgroundColor: theme.colors.surfaceSoft,
@@ -211,16 +258,27 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 14,
   },
+  errorText: {
+    color: theme.colors.danger,
+    marginTop: 12,
+    lineHeight: 18,
+  },
   primaryButton: {
     marginTop: 20,
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     paddingVertical: 16,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
   },
   primaryButtonText: {
     color: theme.colors.background,
     fontSize: 15,
     fontWeight: '800',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

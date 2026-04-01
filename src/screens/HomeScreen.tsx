@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AvatarPreview } from '../components/AvatarPreview';
 import { MetricChip } from '../components/MetricChip';
 import { ProgressBar } from '../components/ProgressBar';
 import { RankBadge } from '../components/RankBadge';
@@ -13,7 +14,7 @@ import { theme } from '../theme/theme';
 import { formatVolume } from '../utils/format';
 
 export function HomeScreen() {
-  const { currentUser, workouts, quests, routines, users, startWorkout, setActiveScreen } = useApp();
+  const { currentUser, workouts, quests, routines, users, cosmetics, startWorkout, setActiveScreen } = useApp();
   const nextRank = rankConfig.find((rank) => rank.minXp > currentUser.xp);
   const topFriend = users
     .filter((user) => user.id !== currentUser.id)
@@ -29,11 +30,16 @@ export function HomeScreen() {
       />
 
       <SurfaceCard style={styles.heroCard}>
-        <Text style={styles.heroLabel}>Current Rank</Text>
-        <Text style={styles.heroXp}>{currentUser.xp} XP</Text>
-        <Text style={styles.heroSubtitle}>
-          {nextRank ? `${nextRank.tier} unlocks at ${nextRank.minXp} XP` : 'You are in the top tier.'}
-        </Text>
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroCopyWrap}>
+            <Text style={styles.heroLabel}>Current Rank</Text>
+            <Text style={styles.heroXp}>{currentUser.xp} XP</Text>
+            <Text style={styles.heroSubtitle}>
+              {nextRank ? `${nextRank.tier} unlocks at ${nextRank.minXp} XP` : 'You are in the top tier.'}
+            </Text>
+          </View>
+          <AvatarPreview user={currentUser} cosmetics={cosmetics} size={104} compact />
+        </View>
         <ProgressBar
           progress={getRankProgress(currentUser.xp)}
           label="Rank progress"
@@ -141,22 +147,34 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: theme.colors.surfaceElevated,
     gap: 14,
+    borderColor: theme.colors.accentAlt,
   },
   heroLabel: {
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1.4,
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
   },
   heroXp: {
     color: theme.colors.text,
-    fontSize: 34,
+    fontSize: 42,
     fontWeight: '900',
+    fontFamily: theme.fonts.display,
   },
   heroSubtitle: {
     color: theme.colors.textMuted,
     lineHeight: 20,
     marginBottom: 4,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  heroCopyWrap: {
+    flex: 1,
   },
   metricRow: {
     flexDirection: 'row',
@@ -169,7 +187,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     flex: 1,
     backgroundColor: theme.colors.accent,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     paddingVertical: 16,
   },
@@ -177,11 +195,14 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
     fontWeight: '800',
     fontSize: 14,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   secondaryButton: {
     flex: 1,
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     alignItems: 'center',
     paddingVertical: 16,
     borderWidth: 1,
@@ -191,12 +212,16 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: '700',
     fontSize: 14,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 8,
+    fontFamily: theme.fonts.display,
   },
   sectionSubtitle: {
     color: theme.colors.textMuted,
@@ -220,6 +245,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 15,
     fontWeight: '700',
+    fontFamily: theme.fonts.display,
   },
   routineCopy: {
     color: theme.colors.textMuted,
@@ -230,6 +256,7 @@ const styles = StyleSheet.create({
   routineMeta: {
     fontWeight: '700',
     fontSize: 12,
+    fontFamily: theme.fonts.mono,
   },
   questRow: {
     gap: 10,
@@ -260,12 +287,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.sm,
     backgroundColor: theme.colors.surfaceSoft,
   },
   secondaryActionText: {
     color: theme.colors.text,
     fontWeight: '700',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   historyRow: {
     flexDirection: 'row',
