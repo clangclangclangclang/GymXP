@@ -1,17 +1,26 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { MetricChip } from '../components/MetricChip';
+import { AvatarPreview } from '../components/AvatarPreview';
 import { ProgressBar } from '../components/ProgressBar';
 import { RankBadge } from '../components/RankBadge';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SurfaceCard } from '../components/SurfaceCard';
+import { rankConfig } from '../config/game';
 import { useApp } from '../state/AppProvider';
 import { theme } from '../theme/theme';
 import { formatDuration, formatVolume } from '../utils/format';
 
 export function WorkoutSummaryScreen() {
-  const { lastWorkoutReward, lastWorkout, setActiveScreen, startWorkout } = useApp();
+  const {
+    lastWorkoutReward,
+    lastWorkout,
+    currentUser,
+    quests,
+    cosmetics,
+    setActiveScreen,
+    startWorkout,
+  } = useApp();
 
   if (!lastWorkoutReward || !lastWorkout) {
     return (
@@ -26,41 +35,82 @@ export function WorkoutSummaryScreen() {
     );
   }
 
+  const completedQuests = lastWorkoutReward.completedQuestIds
+    .map((questId) => quests.find((quest) => quest.id === questId))
+    .filter((quest): quest is NonNullable<(typeof quests)[number]> => Boolean(quest));
+  const nextRankStop = rankConfig.find((rank) => rank.minXp > currentUser.xp) ?? null;
+  const xpToNextRank = nextRankStop ? Math.max(0, nextRankStop.minXp - currentUser.xp) : 0;
+  const questBoard = [
+    ...completedQuests,
+    ...quests.filter((quest) => !lastWorkoutReward.completedQuestIds.includes(quest.id)),
+  ].slice(0, 4);
+  const payoutRows = [
+    { label: 'Base workout', value: lastWorkoutReward.baseXp, tone: theme.colors.text },
+    { label: 'Consistency bonus', value: lastWorkoutReward.consistencyXp, tone: theme.colors.accent },
+    { label: 'Quest payout', value: lastWorkoutReward.questXp, tone: theme.colors.accentAlt },
+    { label: 'PR bonus', value: lastWorkoutReward.prXp, tone: theme.colors.warning },
+  ];
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
       <ScreenHeader
         eyebrow="Workout Complete"
-        title={`+${lastWorkoutReward.totalXp} XP`}
-        subtitle="Your reward loop just fired. Review the gains, then get back after the next streak tile."
+        title="Payout Secured"
+        subtitle="Your rank rail moved, the streak stayed alive, and the reward board is ready to collect."
         rightNode={<RankBadge rank={lastWorkoutReward.rankAfter} />}
       />
 
       <SurfaceCard style={styles.heroCard}>
-        <Text style={styles.heroLabel}>{lastWorkout.title}</Text>
-        <Text style={styles.heroValue}>{formatVolume(lastWorkout.totalVolume)}</Text>
-        <Text style={styles.heroCopy}>
-          {lastWorkout.totalSets} total sets in {formatDuration(lastWorkout.durationMinutes)}
-        </Text>
-
-        <View style={styles.metricRow}>
-          <MetricChip label="Base XP" value={`${lastWorkoutReward.baseXp}`} />
-          <MetricChip label="PR Bonus" value={`${lastWorkoutReward.prXp}`} tone={theme.colors.warning} />
-          <MetricChip label="Quest XP" value={`${lastWorkoutReward.questXp}`} tone={theme.colors.accentAlt} />
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroCopyWrap}>
+            <Text style={styles.heroLabel}>{lastWorkout.title}</Text>
+            <Text style={styles.heroXpValue}>+{lastWorkoutReward.totalXp} XP</Text>
+            <Text style={styles.heroCopy}>
+              {lastWorkout.totalSets} total sets in {formatDuration(lastWorkout.durationMinutes)} with{' '}
+              {formatVolume(lastWorkout.totalVolume)} moved.
+            </Text>
+          </View>
+          <AvatarPreview user={currentUser} cosmetics={cosmetics} compact />
         </View>
 
-        <View style={styles.metricRow}>
-          <MetricChip
-            label="Currency"
-            value={`+${lastWorkoutReward.currencyEarned} GC`}
-            tone={theme.colors.warning}
-          />
-          <MetricChip label="Streak" value={`${lastWorkoutReward.streak} days`} tone={theme.colors.accent} />
-          <MetricChip label="PRs" value={`${lastWorkoutReward.discoveredPrs.length}`} />
+        <View style={styles.sessionLootCard}>
+          {payoutRows.map((row) => (
+            <View key={row.label} style={styles.lootRow}>
+              <Text style={styles.lootLabel}>{row.label}</Text>
+              <Text style={[styles.lootValue, { color: row.tone }]}>+{row.value} XP</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.heroStatGrid}>
+          <View style={styles.heroStatTile}>
+            <Text style={styles.heroStatValue}>{lastWorkoutReward.streak}</Text>
+            <Text style={styles.heroStatLabel}>Streak Alive</Text>
+          </View>
+          <View style={styles.heroStatTile}>
+            <Text style={styles.heroStatValue}>+{lastWorkoutReward.currencyEarned}</Text>
+            <Text style={styles.heroStatLabel}>Gym Coins</Text>
+          </View>
+          <View style={styles.heroStatTile}>
+            <Text style={styles.heroStatValue}>{lastWorkoutReward.discoveredPrs.length}</Text>
+            <Text style={styles.heroStatLabel}>PRs Locked</Text>
+          </View>
+          <View style={styles.heroStatTile}>
+            <Text style={styles.heroStatValue}>{lastWorkoutReward.completedQuestIds.length}</Text>
+            <Text style={styles.heroStatLabel}>Quest Clears</Text>
+          </View>
         </View>
       </SurfaceCard>
 
       <SurfaceCard>
-        <Text style={styles.sectionTitle}>Rank impact</Text>
+        <Text style={styles.sectionTitle}>Rank rail</Text>
+        {lastWorkoutReward.rankBefore !== lastWorkoutReward.rankAfter && (
+          <View style={styles.rankUpBanner}>
+            <Text style={styles.rankUpText}>
+              Rank up: {lastWorkoutReward.rankBefore} to {lastWorkoutReward.rankAfter}
+            </Text>
+          </View>
+        )}
         <ProgressBar
           progress={lastWorkoutReward.rankProgressBefore}
           label={`Before / ${lastWorkoutReward.rankBefore}`}
@@ -74,23 +124,46 @@ export function WorkoutSummaryScreen() {
           caption={`${Math.round(lastWorkoutReward.rankProgressAfter * 100)}%`}
           tone={theme.colors.accent}
         />
+        <Text style={styles.rankMeta}>
+          {nextRankStop
+            ? `${xpToNextRank} XP until ${nextRankStop.tier}`
+            : 'Elite reached. You are at the top of the current rank ladder.'}
+        </Text>
       </SurfaceCard>
 
       <SurfaceCard>
-        <Text style={styles.sectionTitle}>Quest clears</Text>
-        {lastWorkoutReward.completedQuestIds.length > 0 ? (
-          <View style={styles.chipWrap}>
-            {lastWorkoutReward.completedQuestIds.map((questId) => (
-              <View key={questId} style={styles.rewardChip}>
-                <Text style={styles.rewardChipText}>{questId}</Text>
+        <Text style={styles.sectionTitle}>Quest board</Text>
+        <Text style={styles.sectionCopy}>
+          The reward loop is strongest when each session visibly pushes quests forward.
+        </Text>
+        <View style={styles.questStack}>
+          {questBoard.map((quest) => (
+            <View key={quest.id} style={styles.questRow}>
+              <View style={styles.questHeader}>
+                <View>
+                  <Text style={styles.questEyebrow}>
+                    {quest.iconLabel} / {quest.cadence}
+                  </Text>
+                  <Text style={styles.questTitle}>{quest.title}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.questStatus,
+                    quest.completed ? styles.questStatusComplete : null,
+                  ]}
+                >
+                  {quest.completed ? 'Cleared' : `${quest.progress}/${quest.target}`}
+                </Text>
               </View>
-            ))}
-          </View>
-        ) : (
-          <Text style={styles.emptyCopy}>
-            No quest fully cleared this session, but the progress bar moved.
-          </Text>
-        )}
+              <ProgressBar
+                progress={quest.progress / quest.target}
+                label={quest.description}
+                caption={`${quest.progress}/${quest.target}`}
+                tone={quest.completed ? theme.colors.accent : theme.colors.accentAlt}
+              />
+            </View>
+          ))}
+        </View>
       </SurfaceCard>
 
       <SurfaceCard>
@@ -100,6 +173,9 @@ export function WorkoutSummaryScreen() {
             {lastWorkoutReward.discoveredPrs.map((pr) => (
               <View key={pr} style={styles.prRow}>
                 <Text style={styles.prText}>{pr}</Text>
+                <Text style={styles.unlockText}>
+                  New high-water mark recorded to your progress timeline.
+                </Text>
               </View>
             ))}
           </View>
@@ -147,8 +223,18 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     backgroundColor: theme.colors.surfaceElevated,
-    gap: 14,
+    gap: 18,
     borderColor: theme.colors.accentAlt,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+    alignItems: 'center',
+  },
+  heroCopyWrap: {
+    flex: 1,
+    gap: 8,
   },
   heroLabel: {
     color: theme.colors.textMuted,
@@ -157,19 +243,66 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: theme.fonts.mono,
   },
-  heroValue: {
+  heroXpValue: {
     color: theme.colors.text,
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: '900',
     fontFamily: theme.fonts.display,
   },
   heroCopy: {
     color: theme.colors.textMuted,
     fontSize: 14,
+    lineHeight: 20,
   },
-  metricRow: {
-    flexDirection: 'row',
+  sessionLootCard: {
     gap: 10,
+    padding: 14,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  lootRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  lootLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+  },
+  lootValue: {
+    fontWeight: '800',
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1,
+  },
+  heroStatGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  heroStatTile: {
+    width: '48%',
+    minWidth: 140,
+    padding: 14,
+    borderRadius: theme.radius.md,
+    backgroundColor: `${theme.colors.accent}10`,
+    borderWidth: 1,
+    borderColor: `${theme.colors.accent}35`,
+  },
+  heroStatValue: {
+    color: theme.colors.text,
+    fontSize: 28,
+    fontWeight: '800',
+    fontFamily: theme.fonts.display,
+  },
+  heroStatLabel: {
+    color: theme.colors.textMuted,
+    marginTop: 6,
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+    fontFamily: theme.fonts.mono,
   },
   sectionTitle: {
     color: theme.colors.text,
@@ -178,26 +311,75 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontFamily: theme.fonts.display,
   },
+  sectionCopy: {
+    color: theme.colors.textMuted,
+    lineHeight: 20,
+    marginBottom: 14,
+  },
   spacer: {
     height: 14,
   },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  rewardChip: {
+  rankUpBanner: {
     paddingHorizontal: 12,
     paddingVertical: 10,
+    marginBottom: 14,
     borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.surfaceSoft,
+    backgroundColor: `${theme.colors.warning}18`,
+    borderWidth: 1,
+    borderColor: `${theme.colors.warning}55`,
   },
-  rewardChipText: {
-    color: theme.colors.accent,
+  rankUpText: {
+    color: theme.colors.warning,
     fontWeight: '700',
     fontFamily: theme.fonts.mono,
     letterSpacing: 1,
     textTransform: 'uppercase',
+  },
+  rankMeta: {
+    marginTop: 12,
+    color: theme.colors.textMuted,
+    lineHeight: 20,
+  },
+  questStack: {
+    gap: 12,
+  },
+  questRow: {
+    padding: 14,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    gap: 10,
+  },
+  questHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  questEyebrow: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
+    fontFamily: theme.fonts.mono,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  questTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  questStatus: {
+    color: theme.colors.accentAlt,
+    fontFamily: theme.fonts.mono,
+    fontWeight: '700',
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  questStatusComplete: {
+    color: theme.colors.accent,
   },
   stack: {
     gap: 10,
@@ -206,6 +388,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   prText: {
     color: theme.colors.text,

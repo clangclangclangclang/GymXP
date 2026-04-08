@@ -126,6 +126,115 @@ function getQuestCompletion(
   return { quests: nextQuests, xp: totalXp, currency: totalCurrency, completedIds };
 }
 
+export function previewWorkoutReward(
+  draft: WorkoutDraft | null,
+  user: UserProfile,
+  quests: Quest[]
+): {
+  baseXp: number;
+  consistencyXp: number;
+  questXp: number;
+  socialShareXp: number;
+  totalXpFloor: number;
+  streakAfter: number;
+  exerciseCount: number;
+  totalSets: number;
+  totalVolume: number;
+  questPreview: Array<{
+    id: string;
+    title: string;
+    cadence: Quest['cadence'];
+    progressBefore: number;
+    progressAfter: number;
+    target: number;
+    delta: number;
+    completedNow: boolean;
+    iconLabel: string;
+  }>;
+} {
+  if (!draft) {
+    return {
+      baseXp: 0,
+      consistencyXp: 0,
+      questXp: 0,
+      socialShareXp: 0,
+      totalXpFloor: 0,
+      streakAfter: user.streak,
+      exerciseCount: 0,
+      totalSets: 0,
+      totalVolume: 0,
+      questPreview: [],
+    };
+  }
+
+  const exercises = toLoggedExercises(draft.exercises).filter((exercise) => exercise.sets.length > 0);
+  const totals = sumSetTotals(exercises);
+  const baseXp =
+    xpRules.baseWorkoutXp +
+    totals.totalSets * xpRules.perSetXp +
+    exercises.length * xpRules.perExerciseXp +
+    Math.floor(totals.totalVolume / xpRules.volumeStepSize) * xpRules.volumeStepXp;
+  const consistencyXp = Math.min(
+    xpRules.streakBonusCap,
+    Math.max(1, user.streak) * xpRules.consistencyMultiplier
+  );
+  const questPreview = quests.map((quest) => {
+    let delta = 0;
+
+    if (!quest.completed) {
+      if (quest.goalType === 'workouts') {
+        delta = 1;
+      }
+
+      if (quest.goalType === 'volume') {
+        delta = totals.totalVolume;
+      }
+
+      if (quest.goalType === 'consistency') {
+        delta = 1;
+      }
+
+      if (quest.goalType === 'social') {
+        delta = 1;
+      }
+    }
+
+    const progressAfter = Math.min(quest.target, quest.progress + delta);
+    return {
+      id: quest.id,
+      title: quest.title,
+      cadence: quest.cadence,
+      progressBefore: quest.progress,
+      progressAfter,
+      target: quest.target,
+      delta,
+      completedNow: !quest.completed && progressAfter >= quest.target,
+      iconLabel: quest.iconLabel,
+    };
+  });
+  const questXp = quests.reduce((total, quest, index) => {
+    if (questPreview[index].completedNow) {
+      return total + quest.xpReward;
+    }
+
+    return total;
+  }, 0);
+  const socialShareXp = xpRules.socialShareXp;
+
+  return {
+    baseXp,
+    consistencyXp,
+    questXp,
+    socialShareXp,
+    totalXpFloor: baseXp + consistencyXp + questXp + socialShareXp,
+    streakAfter: user.streak + 1,
+    exerciseCount: exercises.length,
+    totalSets: totals.totalSets,
+    totalVolume: totals.totalVolume,
+    questPreview,
+  };
+}
+
 export function getRankForXp(xp: number): RankTier {
   let current: RankTier = 'Bronze';
   rankConfig.forEach((rank) => {
